@@ -20,45 +20,57 @@ bicycle_num=0
 detect_num=0
 preTime=time.time()
 flag=0
+frame=0
 #
 
 def save_detections(box_num,image):
-    global preTime,detect_num,flag
+    global preTime,detect_num,flag,frame
     # 保存检测到目标的图片
     # detections:目标信息列表
+    frame=frame+1
+    #print(frame)
     if(box_num!=detect_num)and (box_num>0):
         detect_num=box_num
         preTime=time.time()
         flag=1
-    if((time.time()-preTime)>1.5)and flag==1and (box_num>0):
+        frame=0
+    #若发现检测的目标个数发生变化时，若0.5秒个数不变则传输图片。若检测目标数目不变则1.5秒传输一次图片
+    if(frame>3)and flag==1and (box_num>0)or((frame>10)and flag==0and (box_num>0)):
+      flag=0
       img_name=time.strftime('%Y-%m-%d_%H_%M_%S')
-      cv2.imwrite('/home/nvidia/Object_Detect/%s.jpg'%(img_name),
+      cv2.imwrite('/home/nvidia/Object_Detect/image/%s.jpg'%(img_name),
                                                        image)
 
+      #darknet.send_mjpeg('/home/nvidia/Object_Detect/image/2020-07-08_11_05_46.jpg',8090,400000,40)
+      frame=0
+      print("图片存储成功")
+      f=open("/home/nvidia/Object_Detect/txt/img_msg.txt","a+",encoding="utf-8")
+      f.write("\n time:%s   person_num:%s   car_num:%s   bicycle_num:%s"%(img_name,person_num,car_num,bicycle_num))
 
-      with open ('/home/nvidia/Object_Detect/%s.jpg'%(img_name),'rb') as f:
-              img_bytes=f.read()
-              msg={
-
-                  "filename": str(img_name),
-                  "total_size":len(img_bytes),
-                  "person_num":person_num,
-                  "car_num":car_num,
-                  "bicycle_num":bicycle_num
-              }
-              headers_json=json.dumps(msg)
-              headers_json_bytes=bytes(headers_json,encoding="utf-8")
-              skt.send(struct.pack('i',len(headers_json_bytes)))
-              skt.send(headers_json_bytes)
-              skt.sendall(img_bytes)
-
-              # for data in f:
-              #   skt.send(data)
-              f.close()
-
-              print("发送完成")
-              detect_num =box_num
-              preTime = time.time()
+      #tcp 发送图片部分
+      # with open ('/home/nvidia/Object_Detect/%s.jpg'%(img_name),'rb') as f:
+      #         img_bytes=f.read()
+      #         msg={
+      #
+      #             "filename": str(img_name),
+      #             "total_size":len(img_bytes),
+      #             "person_num":person_num,
+      #             "car_num":car_num,
+      #             "bicycle_num":bicycle_num
+      #         }
+      #         headers_json=json.dumps(msg)
+      #         headers_json_bytes=bytes(headers_json,encoding="utf-8")
+      #         skt.send(struct.pack('i',len(headers_json_bytes)))
+      #         skt.send(headers_json_bytes)
+      #         skt.sendall(img_bytes)
+      #
+      #         # for data in f:
+      #         #   skt.send(data)
+      #         f.close()
+      #
+      #         print("发送完成")
+    detect_num =box_num
+    preTime = time.time()
 
 
 
@@ -86,7 +98,8 @@ def cvDrawBoxes(detections, img):
     bicycle_num=0
     car_num=0
     for detection in detections:
-        if(detection[0].decode() not in ['person','car','bicycle']): break
+        if(detection[0].decode() not in ['person','car'
+                                                  '','bicycle']): break
         if(detection[0].decode()=='person'): person_num=person_num+1
         if(detection[0].decode() == 'car'): car_num = car_num + 1
         if(detection[0].decode() == 'bicycle_num'): bicycle_num = bicycle_num + 1
@@ -160,10 +173,18 @@ def YOLO():
     # 开始读取图像
     camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
     converter = pylon.ImageFormatConverter()
-
+    #输出源视频
+    out = cv2.VideoWriter(
+             "/home/nvidia/Object_Detect/original_video/%s_origital.avi"%(time.strftime('%Y-%m-%d_%H_%M_%S')), cv2.VideoWriter_fourcc(*"MP42"), 20.0,
+             (darknet.network_width(netMain), darknet.network_height(netMain)))
+    out_detect = cv2.VideoWriter(
+        "/home/nvidia/Object_Detect/detect_video/%s_detect.avi"%(time.strftime('%Y-%m-%d_%H_%M_%S')), cv2.VideoWriter_fourcc(*"MP42"), 20.0,
+        (darknet.network_width(netMain), darknet.network_height(netMain)))
     # 转换为OpenCV的BGR彩色格式
     converter.OutputPixelFormat = pylon.PixelType_BGR8packed
     converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
+
+
     while camera.IsGrabbing():
         prev_time = time.time()
         grabResult = camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
@@ -183,10 +204,23 @@ def YOLO():
             darknet.copy_image_from_bytes(darknet_image, frame_resized.tobytes())
 
             detections = darknet.detect_image(netMain, metaMain, darknet_image, thresh=0.25)
-            print(len(detections))
+            frame_resized_color = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
+            out.write(frame_resized_color)
             image,box_num = cvDrawBoxes(detections, frame_resized)
+            cv2.imwrite('/home/nvidia/Object_Detect/temp.jpg', image)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            # 缓存
+
+            #img=darknet.change_cvmat("/home/nvidia/Object_Detect/image/2020-07-06_17_29_46.jpg",1)
+            darknet.send_mjpeg('/home/nvidia/Object_Detect/temp.jpg'.encode("utf8"), 8090, 400000, 40)
+            print("转换成功")
+            im, arr = darknet.array_to_image(image)
+            #print(box_num)
+
+
+
             save_detections(box_num,image)
+            out_detect.write(image)
             #输出fps
             #print(1 / (time.time() - prev_time))
 
@@ -201,7 +235,8 @@ def YOLO():
     camera.StopGrabbing()
     # 关闭窗口
     cv2.destroyAllWindows()
-
+    out.release()
+    out_detect.release()
     # cap = cv2.VideoCapture("video.mp4")
     # cap.set(3, 1280)
     # cap.set(4, 720)
@@ -234,19 +269,19 @@ def YOLO():
     # out.release()
 
 if __name__ == "__main__":
-
-    Host = '192.168.1.80'
-    Port = 5005
-    ADDR = (Host, Port)
-
-    server = socket(AF_INET, SOCK_STREAM)
-    server.bind(ADDR)
-    server.listen(5)
-
-
-    print("等待客户端连接")
-    skt, addr = server.accept()
-    print(skt)
+    #tcp与局域网主机通信
+    # Host = '192.168.1.80'
+    # Port = 5005
+    # ADDR = (Host, Port)
+    #
+    # server = socket(AF_INET, SOCK_STREAM)
+    # server.bind(ADDR)
+    # server.listen(5)
+    #
+    #
+    # print("等待客户端连接")
+    # skt, addr = server.accept()
+    # print(skt)
     YOLO()
 
-    server.close()
+   # server.close()

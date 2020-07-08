@@ -220,7 +220,10 @@ network_predict_batch = lib.network_predict_batch
 network_predict_batch.argtypes = [c_void_p, IMAGE, c_int, c_int, c_int,
                                    c_float, c_float, POINTER(c_int), c_int, c_int]
 network_predict_batch.restype = POINTER(DETNUMPAIR)
-
+change_cvmat=lib.load_image_mat_cv
+send_mjpeg=lib.send_mjpeg
+send_mjpeg.argtypes = (c_char_p, c_int,c_int)
+image_to_mat=lib.image_to_mat
 def array_to_image(arr):
     import numpy as np
     # need to return old values to avoid python freeing memory
@@ -244,7 +247,8 @@ def classify(net, meta, im):
         res.append((nameTag, out[i]))
     res = sorted(res, key=lambda x: -x[1])
     return res
-
+def send_http(frame):
+    send_mjpeg(frame ,8090,40000,40)
 def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45, debug= False):
     """
     Performs the meat of the detection

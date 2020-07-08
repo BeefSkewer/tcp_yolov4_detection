@@ -316,7 +316,8 @@ void demo(char *cfgfile, char *weightfile, float thresh, float hier_thresh, int 
                 int port = mjpeg_port;
                 int timeout = 400000;
                 int jpeg_quality = 40;    // 1 - 100
-                send_mjpeg(show_img, port, timeout, jpeg_quality);
+                //send_mjpeg(show_img, port, timeout, jpeg_quality);
+                send_mjpeg("/home/nvidia/Object_Detect/image/2020-07-06_17_29_46.jpg", port, timeout, jpeg_quality);
             }
 
             // save video file

@@ -6,7 +6,7 @@
 // a single-threaded, multi client(using select), debug webserver - streaming out mjpg.
 //  on win, _WIN32 has to be defined, must link against ws2_32.lib (socks on linux are for free)
 //
-
+#include"image_opencv.h"
 #include <cstdio>
 #include <vector>
 #include <iostream>
@@ -529,15 +529,31 @@ public:
 static std::mutex mtx_mjpeg;
 
 //struct mat_cv : cv::Mat { int a[0]; };
-
-void send_mjpeg(mat_cv* mat, int port, int timeout, int quality)
+mat_cv* new_mat;
+//源参数   mat_cv* mat
+void send_mjpeg(const char *filename, int port, int timeout, int quality)
 {
     try {
+        new_mat=load_image_mat_cv(filename,IMREAD_UNCHANGED);
         std::lock_guard<std::mutex> lock(mtx_mjpeg);
         static MJPG_sender wri(port, timeout, quality);
         //cv::Mat mat = cv::cvarrToMat(ipl);
-        wri.write(*(cv::Mat*)mat);
-        std::cout << " MJPEG-stream sent. \n";
+        wri.write(*(cv::Mat*)new_mat);
+        std::cout << " MJPEG-stream sent！！. \n";
+    }
+    catch (...) {
+        cerr << " Error in send_mjpeg() function \n";
+    }
+}
+void send_my_mjpeg(const char *filename, int port, int timeout, int quality)
+{
+    try {
+        new_mat=load_image_mat_cv(filename,IMREAD_UNCHANGED);
+        std::lock_guard<std::mutex> lock(mtx_mjpeg);
+        static MJPG_sender wri(port, timeout, quality);
+        //cv::Mat mat = cv::cvarrToMat(ipl);
+        wri.write(*(cv::Mat*)new_mat);
+        std::cout << " MJPEG-stream sent！！. \n";
     }
     catch (...) {
         cerr << " Error in send_mjpeg() function \n";
