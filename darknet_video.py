@@ -45,7 +45,7 @@ def save_detections(box_num,image):
       frame=0
       print("图片存储成功")
       f=open("/home/nvidia/Object_Detect/txt/img_msg.txt","a+",encoding="utf-8")
-      f.write("\n time:%s   person_num:%s   car_num:%s   bicycle_num:%s"%(img_name,person_num,car_num,bicycle_num))
+      f.write("\n |location:(0,0,0)|time:%s|person_num:%s|car_num:%s|bicycle_num:%s"%|(img_name,person_num,car_num,bicycle_num))
 
       #tcp 发送图片部分
       # with open ('/home/nvidia/Object_Detect/%s.jpg'%(img_name),'rb') as f:
